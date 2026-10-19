@@ -2,11 +2,11 @@ import { fileURLToPath } from "node:url";
 
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
-import { type Function, Runtime } from "aws-cdk-lib/aws-lambda";
+import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
-import { Topic } from "aws-cdk-lib/aws-sns";
+import { SubscriptionFilter, Topic } from "aws-cdk-lib/aws-sns";
 import { SqsSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
@@ -34,10 +34,18 @@ export class PlaygroundStack extends Stack {
     auditTable.grantWriteData(audit);
 
     this.addConsumer("checks", topic);
-    this.addConsumer("apollo", topic);
+    // SNS applies the filter policy, so non-apollo changes never reach the queue
+    // (and never cost a Lambda invocation).
+    this.addConsumer("apollo", topic, {
+      project: SubscriptionFilter.stringFilter({ allowlist: ["apollo"] }),
+    });
   }
 
-  private addConsumer(name: ConsumerName, topic: Topic): Function {
+  private addConsumer(
+    name: ConsumerName,
+    topic: Topic,
+    filterPolicy?: Record<string, SubscriptionFilter>,
+  ): NodejsFunction {
     const spec = CONSUMERS[name];
 
     const deadLetterQueue = new Queue(this, `${name}-dlq`, {
@@ -52,7 +60,7 @@ export class PlaygroundStack extends Stack {
       deadLetterQueue: { queue: deadLetterQueue, maxReceiveCount: spec.maxReceiveCount },
     });
 
-    topic.addSubscription(new SqsSubscription(queue, { rawMessageDelivery: true }));
+    topic.addSubscription(new SqsSubscription(queue, { rawMessageDelivery: true, filterPolicy }));
 
     const fn = new NodejsFunction(this, `${name}-function`, {
       functionName: spec.functionName,
