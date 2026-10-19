@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "deploy": "cdklocal bootstrap && cdklocal deploy --require-approval never",
+    "publish": "tsx --env-file-if-exists=.env src/scripts/publish.ts",
+    "logs": "tsx --env-file-if-exists=.env src/scripts/logs.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
