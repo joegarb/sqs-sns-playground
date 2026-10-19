@@ -1,12 +1,41 @@
-import { CloudWatchLogsClient, FilterLogEventsCommand } from "@aws-sdk/client-cloudwatch-logs";
+import { CloudWatchLogsClient, paginateFilterLogEvents } from "@aws-sdk/client-cloudwatch-logs";
 
 import { CONSUMERS, type ConsumerName, logGroupName } from "../topology.ts";
 
-// Tails a consumer's CloudWatch Logs, formatting Powertools' JSON lines and
-// skipping the Lambda platform's START/END/REPORT lines.
+// Reads a consumer's CloudWatch Logs, keeping Powertools' JSON lines and skipping
+// the Lambda platform's START/END/REPORT lines.
 //   npm run logs -- <consumer> [--follow]
 
-const IGNORED_KEYS = new Set([
+export interface LogEntry {
+  eventId: string;
+  timestamp: number;
+  fields: Record<string, unknown>;
+}
+
+export async function readLogs(
+  logs: CloudWatchLogsClient,
+  consumer: ConsumerName,
+  startTime: number,
+): Promise<LogEntry[]> {
+  const entries: LogEntry[] = [];
+  const pages = paginateFilterLogEvents(
+    { client: logs },
+    { logGroupName: logGroupName(CONSUMERS[consumer]), startTime },
+  );
+  for await (const page of pages) {
+    for (const event of page.events ?? []) {
+      try {
+        const fields = JSON.parse(event.message ?? "") as Record<string, unknown>;
+        entries.push({ eventId: event.eventId ?? "", timestamp: event.timestamp ?? 0, fields });
+      } catch {
+        // not a Powertools line
+      }
+    }
+  }
+  return entries;
+}
+
+const HIDDEN_KEYS = new Set([
   "level",
   "message",
   "timestamp",
@@ -20,28 +49,23 @@ const IGNORED_KEYS = new Set([
   "function_request_id",
 ]);
 
-function format(line: string): string | undefined {
-  let entry: Record<string, unknown>;
-  try {
-    entry = JSON.parse(line) as Record<string, unknown>;
-  } catch {
-    return undefined;
-  }
-  const text = (value: unknown): string => {
-    if (typeof value === "string") return value;
-    // Powertools logs errors as { name, message, stack }; the message is enough here.
-    if (typeof value === "object" && value !== null && "message" in value) return text(value.message);
-    return JSON.stringify(value);
-  };
-  const fields = Object.entries(entry)
-    .filter(([key]) => !IGNORED_KEYS.has(key))
+function text(value: unknown): string {
+  if (typeof value === "string") return value;
+  // Powertools logs errors as { name, message, stack }; the message is enough here.
+  if (typeof value === "object" && value !== null && "message" in value) return text(value.message);
+  return JSON.stringify(value);
+}
+
+function format({ fields }: LogEntry): string {
+  const extra = Object.entries(fields)
+    .filter(([key]) => !HIDDEN_KEYS.has(key))
     .map(([key, value]) => `${key}=${text(value)}`);
-  return `${text(entry.timestamp).slice(11, 19)} [${text(entry.service)}] ${text(entry.message)} ${fields.join(" ")}`;
+  return `${text(fields.timestamp).slice(11, 19)} [${text(fields.service)}] ${text(fields.message)} ${extra.join(" ")}`;
 }
 
 async function main(): Promise<void> {
-  const name = process.argv[2] as ConsumerName | undefined;
-  if (!name || !(name in CONSUMERS)) {
+  const consumer = process.argv[2] as ConsumerName | undefined;
+  if (!consumer || !(consumer in CONSUMERS)) {
     console.error(`usage: npm run logs -- <${Object.keys(CONSUMERS).join("|")}> [--follow]`);
     process.exit(1);
   }
@@ -50,17 +74,12 @@ async function main(): Promise<void> {
   const logs = new CloudWatchLogsClient();
   let startTime = Date.now() - 15 * 60_000;
   const seen = new Set<string>();
-
   for (;;) {
-    const { events = [] } = await logs.send(
-      new FilterLogEventsCommand({ logGroupName: logGroupName(CONSUMERS[name]), startTime }),
-    );
-    for (const event of events) {
-      if (!event.eventId || seen.has(event.eventId)) continue;
-      seen.add(event.eventId);
-      startTime = Math.max(startTime, event.timestamp ?? 0);
-      const line = format(event.message?.trim() ?? "");
-      if (line) console.log(line);
+    for (const entry of await readLogs(logs, consumer, startTime)) {
+      if (seen.has(entry.eventId)) continue;
+      seen.add(entry.eventId);
+      startTime = Math.max(startTime, entry.timestamp);
+      console.log(format(entry));
     }
     if (!follow) break;
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -68,4 +87,4 @@ async function main(): Promise<void> {
   logs.destroy();
 }
 
-await main();
+if (import.meta.main) await main();
