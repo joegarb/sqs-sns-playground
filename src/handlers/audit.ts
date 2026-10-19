@@ -1,5 +1,6 @@
-import { sqsConsumer } from "../consumer.ts";
+import { auditConsumer, dynamoAuditLog } from "../audit-log.ts";
 
-export const handler = sqsConsumer("audit", (event, logger) => {
-  logger.info("recorded", { project: event.project, revision: event.revision });
-});
+const tableName = process.env.AUDIT_TABLE_NAME;
+if (!tableName) throw new Error("AUDIT_TABLE_NAME is not set");
+
+export const handler = auditConsumer(dynamoAuditLog(tableName));

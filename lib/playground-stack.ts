@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
+import { type Function, Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
@@ -10,7 +11,7 @@ import { SqsSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
 
-import { CONSUMERS, type ConsumerName, dlqName, logGroupName, TOPIC_NAME } from "../src/topology.ts";
+import { AUDIT_TABLE_NAME, CONSUMERS, type ConsumerName, dlqName, logGroupName, TOPIC_NAME } from "../src/topology.ts";
 
 const FUNCTION_TIMEOUT = Duration.seconds(5);
 
@@ -21,12 +22,22 @@ export class PlaygroundStack extends Stack {
     const topic = new Topic(this, "DesignChanges", { topicName: TOPIC_NAME });
     new CfnOutput(this, "TopicArn", { value: topic.topicArn });
 
-    for (const name of Object.keys(CONSUMERS) as ConsumerName[]) {
-      this.addConsumer(name, topic);
-    }
+    const auditTable = new Table(this, "AuditLog", {
+      tableName: AUDIT_TABLE_NAME,
+      partitionKey: { name: "changeId", type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    const audit = this.addConsumer("audit", topic);
+    audit.addEnvironment("AUDIT_TABLE_NAME", auditTable.tableName);
+    auditTable.grantWriteData(audit);
+
+    this.addConsumer("checks", topic);
+    this.addConsumer("apollo", topic);
   }
 
-  private addConsumer(name: ConsumerName, topic: Topic): void {
+  private addConsumer(name: ConsumerName, topic: Topic): Function {
     const spec = CONSUMERS[name];
 
     const deadLetterQueue = new Queue(this, `${name}-dlq`, {
@@ -55,5 +66,6 @@ export class PlaygroundStack extends Stack {
       }),
     });
     fn.addEventSource(new SqsEventSource(queue, { batchSize: 10, reportBatchItemFailures: true }));
+    return fn;
   }
 }

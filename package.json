@@ -10,6 +10,7 @@
     "deploy": "cdklocal bootstrap && cdklocal deploy --require-approval never",
     "publish": "tsx --env-file-if-exists=.env src/scripts/publish.ts",
     "logs": "tsx --env-file-if-exists=.env src/scripts/logs.ts",
+    "test": "POWERTOOLS_LOG_LEVEL=SILENT node --test --import tsx 'test/**/*.test.ts'",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",

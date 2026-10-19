@@ -2,6 +2,7 @@
 // the scripts and logs readable; CDK would otherwise generate them.
 export const STACK_NAME = "SqsSnsPlayground";
 export const TOPIC_NAME = "design-changes";
+export const AUDIT_TABLE_NAME = "design-change-audit";
 
 export interface ConsumerSpec {
   queueName: string;
