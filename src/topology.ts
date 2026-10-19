@@ -10,6 +10,8 @@ export interface ConsumerSpec {
 
 export const CONSUMERS = {
   audit: { queueName: "audit-log", functionName: "design-changes-audit" },
+  checks: { queueName: "downstream-checks", functionName: "design-changes-checks" },
+  apollo: { queueName: "apollo-changes", functionName: "design-changes-apollo" },
 } satisfies Record<string, ConsumerSpec>;
 
 export type ConsumerName = keyof typeof CONSUMERS;

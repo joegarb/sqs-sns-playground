@@ -21,7 +21,9 @@ export class PlaygroundStack extends Stack {
     const topic = new Topic(this, "DesignChanges", { topicName: TOPIC_NAME });
     new CfnOutput(this, "TopicArn", { value: topic.topicArn });
 
-    this.addConsumer("audit", topic);
+    for (const name of Object.keys(CONSUMERS) as ConsumerName[]) {
+      this.addConsumer(name, topic);
+    }
   }
 
   private addConsumer(name: ConsumerName, topic: Topic): void {
