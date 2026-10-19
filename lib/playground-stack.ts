@@ -49,7 +49,7 @@ export class PlaygroundStack extends Stack {
       // AWS recommends at least 6x the function timeout in production; kept short
       // here so a failed message comes back (and dead-letters) quickly.
       visibilityTimeout: Duration.seconds(10),
-      deadLetterQueue: { queue: deadLetterQueue, maxReceiveCount: 10 },
+      deadLetterQueue: { queue: deadLetterQueue, maxReceiveCount: spec.maxReceiveCount },
     });
 
     topic.addSubscription(new SqsSubscription(queue, { rawMessageDelivery: true }));

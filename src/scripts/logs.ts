@@ -27,7 +27,12 @@ function format(line: string): string | undefined {
   } catch {
     return undefined;
   }
-  const text = (value: unknown): string => (typeof value === "string" ? value : JSON.stringify(value));
+  const text = (value: unknown): string => {
+    if (typeof value === "string") return value;
+    // Powertools logs errors as { name, message, stack }; the message is enough here.
+    if (typeof value === "object" && value !== null && "message" in value) return text(value.message);
+    return JSON.stringify(value);
+  };
   const fields = Object.entries(entry)
     .filter(([key]) => !IGNORED_KEYS.has(key))
     .map(([key, value]) => `${key}=${text(value)}`);
