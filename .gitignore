@@ -1,0 +1,11 @@
+node_modules/
+cdk.out/
+cdk.context.json
+.env
+*.log
+.DS_Store
+
+.scratch/
+CLAUDE.md
+CONTEXT.md
+docs/

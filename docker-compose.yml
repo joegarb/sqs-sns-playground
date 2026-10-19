@@ -1,0 +1,8 @@
+services:
+  floci:
+    image: floci/floci:2.3.0
+    ports:
+      - "4566:4566"
+    volumes:
+      # Lambda functions run in real containers, which Floci starts through the host's Docker.
+      - /var/run/docker.sock:/var/run/docker.sock
