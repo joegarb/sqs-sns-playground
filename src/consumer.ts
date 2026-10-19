@@ -4,7 +4,7 @@ import type { Context, SQSBatchResponse, SQSEvent, SQSRecord } from "aws-lambda"
 
 import { type DesignChangeEvent, parseDesignChange } from "./design-change.ts";
 
-export type ChangeHandler = (event: DesignChangeEvent, logger: Logger) => Promise<void>;
+export type ChangeHandler = (event: DesignChangeEvent, logger: Logger) => Promise<void> | void;
 
 // Wraps a per-change handler as an SQS-triggered Lambda. Each record succeeds or
 // fails on its own: failures are reported as batch item failures, so only those

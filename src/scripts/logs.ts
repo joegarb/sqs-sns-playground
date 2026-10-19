@@ -6,7 +6,19 @@ import { CONSUMERS, type ConsumerName, logGroupName } from "../topology.ts";
 // skipping the Lambda platform's START/END/REPORT lines.
 //   npm run logs -- <consumer> [--follow]
 
-const IGNORED_KEYS = new Set(["level", "message", "timestamp", "service", "sampling_rate", "xray_trace_id", "cold_start", "function_arn", "function_memory_size", "function_name", "function_request_id"]);
+const IGNORED_KEYS = new Set([
+  "level",
+  "message",
+  "timestamp",
+  "service",
+  "sampling_rate",
+  "xray_trace_id",
+  "cold_start",
+  "function_arn",
+  "function_memory_size",
+  "function_name",
+  "function_request_id",
+]);
 
 function format(line: string): string | undefined {
   let entry: Record<string, unknown>;
@@ -15,11 +27,11 @@ function format(line: string): string | undefined {
   } catch {
     return undefined;
   }
-  const time = String(entry.timestamp ?? "").slice(11, 19);
+  const text = (value: unknown): string => (typeof value === "string" ? value : JSON.stringify(value));
   const fields = Object.entries(entry)
     .filter(([key]) => !IGNORED_KEYS.has(key))
-    .map(([key, value]) => `${key}=${typeof value === "object" ? JSON.stringify(value) : String(value)}`);
-  return `${time} [${String(entry.service)}] ${String(entry.message)} ${fields.join(" ")}`;
+    .map(([key, value]) => `${key}=${text(value)}`);
+  return `${text(entry.timestamp).slice(11, 19)} [${text(entry.service)}] ${text(entry.message)} ${fields.join(" ")}`;
 }
 
 async function main(): Promise<void> {

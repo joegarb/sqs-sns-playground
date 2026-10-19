@@ -10,7 +10,10 @@
     "deploy": "cdklocal bootstrap && cdklocal deploy --require-approval never",
     "publish": "tsx --env-file-if-exists=.env src/scripts/publish.ts",
     "logs": "tsx --env-file-if-exists=.env src/scripts/logs.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@aws-lambda-powertools/batch": "^2.36.0",
@@ -25,12 +28,17 @@
     "constructs": "^10.8.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/aws-lambda": "^8.10.164",
     "@types/node": "^24.19.2",
     "aws-cdk": "^2.1145.0",
     "aws-cdk-local": "^3.0.4",
     "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.10",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.72.0"
   }
 }
